@@ -1,0 +1,59 @@
+from flask import Flask, request
+!pip install twilio
+!pip install openai
+
+from twilio.twiml.messaging_response import MessagingResponse
+import openai
+
+app = Flask(__name__)
+openai.api_key = 'API KEY ENTER'
+draw_words = ['draw', 'paint', 'image', 'picture', 'photo', 'painting', 'drawing']
+
+def generate_picture(text_prompt):
+    generation_response = openai.Image.create(
+        prompt=text_prompt,
+        n=1,
+        size='1024x1024',
+        response_format='url',
+    )
+    print(generation_response)
+    generated_image_url = generation_response['data'][0]['url']
+    return generated_image_url
+
+def generate_ans(question):
+    completions = openai.Completion.create(
+        model='text-davinci-003',
+        temperature=0.5,
+        prompt=question,
+        max_tokens=100,
+        n=1,
+        stop=None,
+    )
+    return completions['choices'][0]['text']
+@app.route('/whatsapp', methods=['POST'])
+def wa_reply():
+    query = request.form.get('Body').lower()
+    print('USER QUERY:', query)
+    
+
+    twilio_response = MessagingResponse()
+    reply = twilio_response.message()
+    reply.body("Hello from your Flask app!")
+
+    if query.split(' ')[0] in draw_words:
+        img_url = generate_picture(query)
+        reply.media(img_url, caption=query)
+    else:
+        answer = generate_ans(query)
+        reply.body(answer)
+
+    return str(twilio_response)
+!pip install pyngrok
+from pyngrok import ngrok
+ngrok.set_auth_token("ENTER TOKEN")
+
+if __name__ == '__main__':
+    # Start ngrok when the app is run
+    public_url = ngrok.connect(5000)
+    print(" * ngrok tunnel \"{}\" -> \"http://127.0.0.1:{}/whatsapp\"".format(public_url, 5000))
+    app.run(port=5000, debug=True)
